@@ -1,5 +1,5 @@
-name := "scikoro-rolls"
-version := "0.1.0-SNAPSHOT"
+name := "scikoro"
+version := "0.1.0"
 scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(

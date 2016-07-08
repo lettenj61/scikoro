@@ -1,7 +1,7 @@
 package scikoro
 
 import utest._
-import scikoro._, Roll._
+import scikoro.Roll._
 
 object RollsTests extends TestSuite {
 
@@ -10,9 +10,9 @@ object RollsTests extends TestSuite {
   def tests = this {
     "A 6 sided die would never score 7" - {
       for (i <- 0 to 100) {
-        val results = F.rollSeq
-        assert(results.forall(_ < F.face + 1))
-        assert(results.sum < F.face * F.number)
+        val result = F.roll
+        assert(result.values.forall(_ < F.face + 1))
+        assert(result.total < F.face * F.number)
       }
     }
   }
