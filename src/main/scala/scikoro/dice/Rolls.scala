@@ -10,7 +10,7 @@ trait Roll {
 
   def nextValue: Int = random.nextInt(face) + 1
 
-  /** Number of dice in this dice pool.
+  /** Number of dices in this dice pool.
     */
   def size: Int
 
@@ -30,7 +30,7 @@ trait Roll {
     */
   val symbol: String = "d"
 
-  /** Generate new `Roll` with adding given integer to its result.
+  /** Generate new [[Roll]] with adding given integer to its result.
     */
   def +(i: Int): Roll
 
@@ -40,34 +40,29 @@ trait Roll {
 
   /** Generate new Roll with its pool size increased by given number.
    */
-  def ++(increasing: Int): Roll
+  def ++(incr: Int): Roll
 
   /** Generate new Roll with its pool size decreased by given number.
    */
-  def --(decreasing: Int): Roll
+  def --(decr: Int): Roll
 
   /** Attempt to roll all of the dice in this pool
     * and get results as `Seq`.
     */
-  def roll: Rolled = size match {
-    case 1  => Rolled.Result1(this, nextValue)
-    case 2  => Rolled.Result2(this, (nextValue, nextValue))
-    case 3  => Rolled.Result3(this, (nextValue, nextValue, nextValue))
-    case z if z < 1 => Rolled.Result1(this, 0)
-    case _  =>
-      val vs = for (i <- 1 to size) yield nextValue
-      Rolled.ResultSeq(this, vs)
-  }
+  def roll: Rolled =
+    Rolled.ResultSeq(this, (1 to size).map(_ => nextValue).toList)
 
   override def toString = s"$size$symbol$face$expr"
 }
 
 object Roll {
 
-  case class Impl private (size: Int,
-                           face: Int,
-                           modifier: Int => Int = identity,
-                           expr: String = "") extends Roll {
+  case class Impl(
+    size: Int,
+    face: Int,
+    modifier: Int => Int = identity,
+    expr: String = ""
+  ) extends Roll {
 
     def +(i: Int) = copy(
       modifier = this.modifier.andThen((_ + i)),
@@ -79,10 +74,10 @@ object Roll {
       expr = this.expr + s"-$i"
     )
 
-    def ++(increasing: Int) = copy(size = this.size + increasing)
+    def ++(incr: Int) = copy(size = this.size + incr)
 
-    def --(decreasing: Int) = {
-      val newPoolSize = if (size - decreasing < 1) 0 else size - decreasing
+    def --(decr: Int) = {
+      val newPoolSize = if (size - decr < 1) 0 else size - decr
       copy(size = newPoolSize)
     }
   }
@@ -106,67 +101,42 @@ object Roll {
   def hundred = percent
 }
 
-
+/** Result of a dice roll.
+  */
 trait Rolled {
 
+  /** A dice pool made this result */
   def source: Roll
 
+  /** Result values of each die in the source pool */
   def values: Seq[Int]
 
+  /** Take the largest numbers of this result up to `count` */
   def top(count: Int): Seq[Int] = values.sorted.takeRight(count)
 
+  /** Take the lowest numbers of this result up to `count` */
   def least(count: Int): Seq[Int] = values.sorted.take(count)
 
+  /** Sum of the result numbers */
   def total: Int = source.modifier(values.sum)
 
+  /** Make the roll again using its source pool */
   def reroll: Rolled = source.roll
 
+  /** Make the roll again with source pool but preserving old values
+   *  if the value satisfies given predicate `p`, or else replacing it
+   *  with newly generated random value.
+   */
   def rerollBy(p: Int => Boolean): Rolled
 }
 
 object Rolled {
-
-  case class Result1(source: Roll, repr: Int) extends Rolled {
-
-    lazy val values: Seq[Int] = Seq(repr)
-
-    def rerollBy(p: Int => Boolean) =
-      if (p(repr)) copy(repr = source.nextValue) else this
-
-    override def toString = s"($repr)${source.expr}"
-  }
-
-  case class Result2(source: Roll, repr: (Int, Int)) extends Rolled {
-
-    lazy val values: Seq[Int] = Seq(repr._1, repr._2)
-
-    def rerollBy(p: Int => Boolean) = {
-      import source.nextValue
-      val nv = values.map(v => if(p(v)) nextValue else v)
-      copy(source, (nv(0), nv(1)))
-    }
-
-    override def toString = repr.toString + source.expr.toString
-  }
-
-  case class Result3(source: Roll, repr: (Int, Int, Int)) extends Rolled {
-
-    lazy val values: Seq[Int] = Seq(repr._1, repr._2, repr._3)
-
-    def rerollBy(p: Int => Boolean) = {
-      import source.nextValue
-      val nv = values.map(v => if(p(v)) nextValue else v)
-      copy(source, (nv(0), nv(1), nv(2)))
-    }
-
-    override def toString = repr.toString + source.expr.toString
-  }
 
   case class ResultSeq(source: Roll, values: Seq[Int]) extends Rolled {
 
     def rerollBy(p: Int => Boolean) =
       copy(values = this.values.map(v => if(p(v)) source.nextValue else v))
 
-    override def toString = values.mkString("(", ",", ")") + source.expr.toString
+    override def toString = values.mkString("(", ",", ")") + source.expr
   }
 }
