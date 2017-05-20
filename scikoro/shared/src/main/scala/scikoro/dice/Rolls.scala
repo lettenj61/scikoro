@@ -49,8 +49,12 @@ trait Roll {
   /** Attempt to roll all of the dice in this pool
     * and get results as `Seq`.
     */
-  def roll: Rolled =
-    Rolled.ResultSeq(this, (1 to size).map(_ => nextValue).toList)
+  def roll: Rolled = size match {
+    case 1 => Rolled.Single(this, nextValue)
+    case 2 => Rolled.Pair(this, nextValue, nextValue)
+    case num =>
+      Rolled.SeqResult(this, (1 to num).map(_ => nextValue).toList)
+  }
 
   override def toString = s"$size$symbol$face$expr"
 }
@@ -103,19 +107,16 @@ object Roll {
 
 /** Result of a dice roll.
   */
-trait Rolled {
+sealed trait Rolled {
 
   /** A dice pool made this result */
   def source: Roll
 
+  /** Alias to `values.head` */
+  def first: Int = values.head
+
   /** Result values of each die in the source pool */
   def values: Seq[Int]
-
-  /** Take the largest numbers of this result up to `count` */
-  def top(count: Int): Seq[Int] = values.sorted.takeRight(count)
-
-  /** Take the lowest numbers of this result up to `count` */
-  def least(count: Int): Seq[Int] = values.sorted.take(count)
 
   /** Sum of the result numbers */
   def total: Int = source.modifier(values.sum)
@@ -127,14 +128,40 @@ trait Rolled {
    *  if the value satisfies given predicate `p`, or else replacing it
    *  with newly generated random value.
    */
-  def rerollBy(p: Int => Boolean): Rolled
+  def rerollWhen(p: Int => Boolean): Rolled
 }
 
 object Rolled {
 
-  case class ResultSeq(source: Roll, values: Seq[Int]) extends Rolled {
+  case class Single(source: Roll, value: Int) extends Rolled {
+    val values = List(value)
+    override def first = value
+    override def rerollWhen(p: Int => Boolean) =
+      if (p(value)) copy(value = source.nextValue)
+      else this
 
-    def rerollBy(p: Int => Boolean) =
+    override def toString = s"$value ${source.expr}"
+  }
+
+  case class Pair(
+    source: Roll,
+    override val first: Int,
+    second: Int
+  ) extends Rolled {
+
+    val values = List(first, second)
+    def rerollWhen(p: Int => Boolean) = {
+      val l = if (p(first)) source.nextValue else first
+      val r = if (p(second)) source.nextValue else second
+      copy(first = l, second = r)
+    }
+
+    override def toString = s"${(first, second)} ${source.expr}"
+  }
+
+  case class SeqResult(source: Roll, values: Seq[Int]) extends Rolled {
+
+    def rerollWhen(p: Int => Boolean) =
       copy(values = this.values.map(v => if(p(v)) source.nextValue else v))
 
     override def toString = values.mkString("(", ",", ")") + source.expr
