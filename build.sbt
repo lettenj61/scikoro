@@ -21,8 +21,9 @@ lazy val scikoro = crossProject.in(file("scikoro"))
     ),
     description := "Scala DSL to emurate dice roll",
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %%% "utest" % "0.4.6" % Test
-    )
+      "com.lihaoyi" %%% "utest" % "0.4.7" % Test
+    ),
+    testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
 lazy val scikoroJVM = scikoro.jvm
